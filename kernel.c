@@ -1,5 +1,7 @@
 #include "Procinfo.h"
 #include "State.h"
+#include "ShmMsg.h"
+#include "Response.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,15 +9,17 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
+#include <sys/mman.h>
 
 #define FIFO_IRQ "/tmp/fifo_irq"
-#define FIFO_SC "/tmp/fifo_sc"
 #define NPROC 5
 
 ProcInfo procs[NPROC];
-pid_t FilaD1[NPROC], FilaD2[NPROC];
-int tamFilaD1 = 0;
-int tamFilaD2 = 0;
+ShmMsg* msgs[NPROC];
+Response filaDir[NPROC], filaFile[NPROC];
+int tamFilaDir = 0;
+int tamFilaFile = 0;
 int currentProc = 0;
 pid_t interController;
 
@@ -31,48 +35,48 @@ int proximo_ready(int current) {
     return -1;
 }
 
-void desbloqueia_processo(int dispositivo) 
+void desbloqueia_processo(int fila) 
 {
-    if(dispositivo == 1)
+    if(fila == 1)
     {
-        if(tamFilaD1 == 0) return;
+        if(tamFilaFile == 0) return;
         else
         {
-            for(int i = 0; i < NPROC; i++)
-            {
-                if(procs[i].pid == FilaD1[0])
-                {
-                    procs[i].estado = READY;
-                    procs[i].dispositivo = 0;
-                    procs[i].operacao = '-';
-                    break;
-                }
-            }
+            ShmMsg r = filaFile[0].rep;
+            int i = r.owner - 1;
+            msgs[i]->result_code = r.result_code;
+            
+            if (r.payloadLen > 0)
+                memcpy(msgs[i]->payload, r.payload, r.payloadLen);
 
-            for(int i = 1; i < tamFilaD1; i++)
-                FilaD1[i - 1] = FilaD1[i];
-            tamFilaD1--;
+            msgs[i]->replyReady = 1;
+
+            procs[i].estado = READY;
+
+            for(int i = 1; i < tamFilaFile; i++)
+                filaFile[i - 1] = filaFile[i];
+            tamFilaFile--;
         }
     }
     else
     {
-        if(tamFilaD2 == 0) return;
+        if(tamFilaDir == 0) return;
         else
         {
-            for(int i = 0; i < NPROC; i++)
-            {
-                if(procs[i].pid == FilaD2[0])
-                {
-                    procs[i].estado = READY;
-                    procs[i].dispositivo = 0;
-                    procs[i].operacao = '-';
-                    break;
-                }
-            }
+            ShmMsg r = filaDir[0].rep;
+            int i = r.owner - 1;
+            msgs[i]->result_code = r.result_code;
             
-            for(int i = 1; i < tamFilaD2; i++)
-                FilaD2[i - 1] = FilaD2[i];
-            tamFilaD2--;
+            if (r.payloadLen > 0)
+                memcpy(msgs[i]->payload, r.payload, r.payloadLen);
+
+            msgs[i]->replyReady = 1;
+
+            procs[i].estado = READY;
+
+            for(int i = 1; i < tamFilaDir; i++)
+                filaDir[i - 1] = filaDir[i];
+            tamFilaDir--;
         }
     }
 }
@@ -98,9 +102,7 @@ int main()
 {
 
     signal(SIGINT, pauseSignal);
-    unlink(FIFO_SC);
     unlink(FIFO_IRQ);
-    mkfifo(FIFO_SC, S_IRUSR | S_IWUSR);
     mkfifo(FIFO_IRQ, S_IRUSR | S_IWUSR);
     
     int fdFifoIrq = open(FIFO_IRQ, O_RDONLY | O_NONBLOCK);
@@ -115,9 +117,17 @@ int main()
 
     kill(interController, SIGSTOP);
 
+    for (int i = 0; i < NPROC; i++) 
+    {
+        char name[32];
+        sprintf(name, "/A%d", i + 1);
+
+        shm_unlink(name);
+    }
+
     for (int i = 0; i < NPROC; i++)
     {
-        procs[i].pid =0;
+        procs[i].pid = 0;
         procs[i].estado = READY;
         procs[i].dispositivo = 0;
         procs[i].operacao = '-';
@@ -126,12 +136,27 @@ int main()
         procs[i].pc = 0;
     }
 
+    for (int i = 0; i < NPROC; i++)
+    {
+        char name[32];
+        sprintf(name, "/A%d", i + 1);
+        int fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+
+        ftruncate(fd, sizeof(ShmMsg));
+        msgs[i] = mmap(NULL, sizeof(ShmMsg), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        memset(msgs[i], 0, sizeof(ShmMsg));
+
+        close(fd);
+    }
+
     for(int i = 0; i < NPROC; i++)
     {
         pid_t pid = fork();
         if(pid == 0) 
         { 
-            execl("./app", "./app", NULL);
+            char owner[16];
+            sprintf(owner, "%d", i + 1);
+            execl("./app", "./app", owner, NULL);
             exit(1);
         } 
         else 
@@ -166,53 +191,56 @@ int main()
                         break;
             }
         }
-        if(read(fdFifoSc, scBuffer, sizeof(scBuffer)) > 0)
-        {
-            char estado[64];
-            int pid, dispositivo, pc;
-            char operacao;
-            sscanf(scBuffer, "%d %d %c %d %s", &pid, &dispositivo, &operacao, &pc, estado);
 
-            for(int i = 0; i < NPROC; i++)
-            {
-                if(procs[i].pid == pid)
-                {
-                    procs[i].pc = pc;
-                    procs[i].estado = string2state(estado); 
-                    procs[i].operacao = operacao;
-                    procs[i].dispositivo = dispositivo;
+        //TODO fazer paradinha de pegar reply udp/server essas coisas
 
-                    if(pc >= 5)
-                        procs[i].estado = FINISHED;
+        // if(read(fdFifoSc, scBuffer, sizeof(scBuffer)) > 0)
+        // {
+        //     char estado[64];
+        //     int pid, dispositivo, pc;
+        //     char operacao;
+        //     sscanf(scBuffer, "%d %d %c %d %s", &pid, &dispositivo, &operacao, &pc, estado);
 
-                    if(procs[i].estado == FINISHED)
-                    {
-                        procs[i].operacao = '-';
-                        procs[i].dispositivo = 0;
-                        procs[i].acessos_D1 = 0;
-                        procs[i].acessos_D2 = 0;
-                    }
+        //     for(int i = 0; i < NPROC; i++)
+        //     {
+        //         if(procs[i].pid == pid)
+        //         {
+        //             procs[i].pc = pc;
+        //             procs[i].estado = string2state(estado); 
+        //             procs[i].operacao = operacao;
+        //             procs[i].dispositivo = dispositivo;
 
-                    if(dispositivo == 1)
-                    {
-                        FilaD1[tamFilaD1++] = pid;
-                        procs[i].acessos_D1++;
-                    }
-                    else if(dispositivo == 2)
-                    {
-                        FilaD2[tamFilaD2++] = pid;
-                        procs[i].acessos_D2++;
-                    }
+        //             if(pc >= 5)
+        //                 procs[i].estado = FINISHED;
 
-                    if(procs[i].estado == BLOCKED)
-                        kill(procs[i].pid, SIGSTOP);
+        //             if(procs[i].estado == FINISHED)
+        //             {
+        //                 procs[i].operacao = '-';
+        //                 procs[i].dispositivo = 0;
+        //                 procs[i].acessos_D1 = 0;
+        //                 procs[i].acessos_D2 = 0;
+        //             }
 
-                    break;
-                }
-            }
+        //             // if(dispositivo == 1)
+        //             // {
+        //             //     FilaD1[tamFilaD1++] = pid;
+        //             //     procs[i].acessos_D1++;
+        //             // }
+        //             // else if(dispositivo == 2)
+        //             // {
+        //             //     FilaD2[tamFilaD2++] = pid;
+        //             //     procs[i].acessos_D2++;
+        //             // }
 
-            printf("[KernelSim] System Call recebida: Processo %d requisitou operação %c em D%d.\n", pid, operacao, dispositivo);
-        }
+        //             if(procs[i].estado == BLOCKED)
+        //                 kill(procs[i].pid, SIGSTOP);
+
+        //             break;
+        //         }
+        //     }
+
+        //     printf("[KernelSim] System Call recebida: Processo %d requisitou operação %c em D%d.\n", pid, operacao, dispositivo);
+        // }
         if(paused){
             kill(interController, SIGSTOP);
             for(int i = 0; i < NPROC; i++)
@@ -259,11 +287,9 @@ int main()
     kill(interController, SIGUSR1);
 
     for(int i = 0; i < NPROC; i++)
-        waitpid(0, NULL, 0);
-    close(fdFifoIrq);
-    close(fdFifoSc);
+        waitpid(procs[i].pid, NULL, 0);
     
+    close(fdFifoIrq);
     unlink(FIFO_IRQ);
-    unlink(FIFO_SC);
     return 0;
 }
