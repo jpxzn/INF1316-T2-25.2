@@ -106,7 +106,6 @@ int main()
     mkfifo(FIFO_IRQ, S_IRUSR | S_IWUSR);
     
     int fdFifoIrq = open(FIFO_IRQ, O_RDONLY | O_NONBLOCK);
-    int fdFifoSc  = open(FIFO_SC,  O_RDONLY | O_NONBLOCK);
 
     interController = fork();
     if(interController == 0)
@@ -167,7 +166,6 @@ int main()
     }
 
     int irqBuffer;
-    char scBuffer[64];
 
     kill(interController, SIGCONT);
 
@@ -194,53 +192,24 @@ int main()
 
         //TODO fazer paradinha de pegar reply udp/server essas coisas
 
-        // if(read(fdFifoSc, scBuffer, sizeof(scBuffer)) > 0)
-        // {
-        //     char estado[64];
-        //     int pid, dispositivo, pc;
-        //     char operacao;
-        //     sscanf(scBuffer, "%d %d %c %d %s", &pid, &dispositivo, &operacao, &pc, estado);
+        for(int i = 0; i < NPROC; i++)
+        {
+            procs[i].pc = msgs[i]->pc;
 
-        //     for(int i = 0; i < NPROC; i++)
-        //     {
-        //         if(procs[i].pid == pid)
-        //         {
-        //             procs[i].pc = pc;
-        //             procs[i].estado = string2state(estado); 
-        //             procs[i].operacao = operacao;
-        //             procs[i].dispositivo = dispositivo;
+            if (msgs[i]->requestReady)
+            {
+                printf("REQUEST READY TA COMO?\n");
+                procs[i].estado = BLOCKED;
+                kill(procs[i].pid,SIGSTOP);
+                msgs[i]->requestReady = 0;
+                //EnviarREquest para o servidor aqui...
+                //sendUDPRequest();
+            }
+        }
 
-        //             if(pc >= 5)
-        //                 procs[i].estado = FINISHED;
+        //getUDPResponse();
+        //enfileiraResponse();
 
-        //             if(procs[i].estado == FINISHED)
-        //             {
-        //                 procs[i].operacao = '-';
-        //                 procs[i].dispositivo = 0;
-        //                 procs[i].acessos_D1 = 0;
-        //                 procs[i].acessos_D2 = 0;
-        //             }
-
-        //             // if(dispositivo == 1)
-        //             // {
-        //             //     FilaD1[tamFilaD1++] = pid;
-        //             //     procs[i].acessos_D1++;
-        //             // }
-        //             // else if(dispositivo == 2)
-        //             // {
-        //             //     FilaD2[tamFilaD2++] = pid;
-        //             //     procs[i].acessos_D2++;
-        //             // }
-
-        //             if(procs[i].estado == BLOCKED)
-        //                 kill(procs[i].pid, SIGSTOP);
-
-        //             break;
-        //         }
-        //     }
-
-        //     printf("[KernelSim] System Call recebida: Processo %d requisitou operação %c em D%d.\n", pid, operacao, dispositivo);
-        // }
         if(paused){
             kill(interController, SIGSTOP);
             for(int i = 0; i < NPROC; i++)

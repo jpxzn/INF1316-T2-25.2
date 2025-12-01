@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <fcntl.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h> 
 
 #define MAX 5
 
@@ -36,10 +36,11 @@ int main(int argc, char *argv[])
     while (pc < MAX) 
     {
         pc++;
+        msg->pc = pc;
         usleep(500000);  // 0.5 s
 
         // ~10% de chance de syscall
-        if (rand() % 100 < 10) 
+        if (rand() % 100 < 100) 
         {
 
             OpType tipo = (OpType)(rand() % 5);
@@ -58,16 +59,22 @@ int main(int argc, char *argv[])
             
             if (tipo == READ) 
             {
-                char* filename;
+                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
+
+                char filename[512];   // espaço suficiente
                 sprintf(filename, "/file%d", file);
-                strcat(msg->path, filename); 
+                strcat(msg->path, filename);
+                
                 printf("[App %d] syscall: read(%s)\n", owner, msg->path);
             }   
             else if (tipo == WRITE) 
             {
-                char* filename;
+                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
+
+                char filename[512];   // espaço suficiente
                 sprintf(filename, "/file%d", file);
-                strcat(msg->path, filename); 
+                strcat(msg->path, filename);
+                
                 memset(msg->payload, 'A' + owner , 16);
                 msg->payloadLen = 16;
                 printf("[App %d] syscall: write(%s)\n", owner, msg->path);
@@ -76,6 +83,7 @@ int main(int argc, char *argv[])
             } 
             else if (tipo == ADD_DIR ) 
             {
+                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
                 strcpy(msg->dirName, "newDir");
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: add(%s)\n", owner, msg->path);
@@ -83,12 +91,16 @@ int main(int argc, char *argv[])
             } 
             else if (tipo == REMOVE_DIR) 
             {
+                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
+
                 strcpy(msg->dirName, "toRemoveDir");
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: rem(%s)\n", owner, msg->path);
             } 
             else if( tipo == LIST_DIR)
             {
+                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
+
                 printf("[App %d] syscall: listdir(%s)\n", owner, msg->path);
             }
 
@@ -98,7 +110,7 @@ int main(int argc, char *argv[])
 
         if(msg->replyReady)
         {
-            msg->estado = READY;
+            //msg->estado = READY;
 
             if (msg->op == READ) 
             {
@@ -133,7 +145,6 @@ int main(int argc, char *argv[])
             msg->replyReady = 0;
             msg->requestReady = 0;
             msg->result_code = 0;
-            msg->op = NONE;
 
             memset(msg->path, 0, sizeof(msg->path));
             memset(msg->dirName, 0, sizeof(msg->dirName));
