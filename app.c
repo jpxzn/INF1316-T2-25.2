@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
             msg->pc = pc;
             msg->estado = BLOCKED;
             msg->pid = getpid();
-            sprintf(msg->path, "/A%d/dir%d", owner, dir);
+            sprintf(msg->path, "/A%d", owner);
             msg->pathLen = strlen(msg->path);
             msg->offset = offsets[rand() % 5];
             
@@ -67,12 +67,13 @@ int main(int argc, char *argv[])
             }   
             else if (tipo == WRITE) 
             {
-                char filename[512];   // espaço suficiente
+                char filename[32];   // espaço suficiente
                 sprintf(filename, "/file%d", file);
                 strcat(msg->path, filename);
                 
                 memset(msg->payload, 'A' + owner , 16);
                 msg->payloadLen = 16;
+                printf("msgpayload -> %s\n", msg->payload);
                 printf("[App %d] syscall: write(%s)\n", owner, msg->path);
                 //TODO payload/offset vazio
 

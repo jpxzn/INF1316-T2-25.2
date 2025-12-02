@@ -26,16 +26,15 @@ int main(void) {
     servAddr.sin_port = htons(6000);
 
     bind(sock, (struct sockaddr*)&servAddr, sizeof(servAddr));
-    printf("[SFS] Servidor de gerência de arquivos inicializado\n");
+    printf("[SFSS] Servidor de gerência de arquivos inicializado\n");
 
     while(1)
     {
         ShmMsg req;
         struct sockaddr_in cliAddr;
         socklen_t cliLen = sizeof(cliAddr);
-
+    
         int n = recvfrom(sock, &req, sizeof(req), 0, (struct sockaddr*)&cliAddr, &cliLen);
-
         if(n <= 0) continue;
 
         printf("[SFS] Recebido request op=%d owner=%d\n", req.op, req.owner);
@@ -58,7 +57,7 @@ int main(void) {
             printf("[DEBUG][READ] Operação de leitura iniciada\n");
 
             char fullpath[128];
-            snprintf(fullpath,sizeof(fullpath), "%s%s", ROOT_DIR, req.path);
+            snprintf(fullpath, sizeof(fullpath), "%s%s", ROOT_DIR, req.path);
             printf("[DEBUG][READ] Caminho completo: %s\n", fullpath);
 
             FILE* f = fopen(fullpath, "rb");
