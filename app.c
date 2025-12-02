@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
         usleep(500000);  // 0.5 s
 
         // ~10% de chance de syscall
-        if (rand() % 100 < 100) 
+        if (rand() % 100 < 10) 
         {
 
             OpType tipo = (OpType)(rand() % 5);
@@ -59,8 +59,6 @@ int main(int argc, char *argv[])
             
             if (tipo == READ) 
             {
-                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
-
                 char filename[512];   // espaço suficiente
                 sprintf(filename, "/file%d", file);
                 strcat(msg->path, filename);
@@ -69,8 +67,6 @@ int main(int argc, char *argv[])
             }   
             else if (tipo == WRITE) 
             {
-                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
-
                 char filename[512];   // espaço suficiente
                 sprintf(filename, "/file%d", file);
                 strcat(msg->path, filename);
@@ -83,23 +79,19 @@ int main(int argc, char *argv[])
             } 
             else if (tipo == ADD_DIR ) 
             {
-                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
-                strcpy(msg->dirName, "newDir");
+               strcpy(msg->dirName, "newDir");
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: add(%s)\n", owner, msg->path);
 
             } 
             else if (tipo == REMOVE_DIR) 
             {
-                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
-
                 strcpy(msg->dirName, "toRemoveDir");
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: rem(%s)\n", owner, msg->path);
             } 
             else if( tipo == LIST_DIR)
             {
-                printf("REQUEST AQUI AIIII %d do APP %d\n", __LINE__, owner);
 
                 printf("[App %d] syscall: listdir(%s)\n", owner, msg->path);
             }
@@ -110,7 +102,6 @@ int main(int argc, char *argv[])
 
         if(msg->replyReady)
         {
-            //msg->estado = READY;
 
             if (msg->op == READ) 
             {

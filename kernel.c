@@ -11,6 +11,10 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <sys/mman.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define FIFO_IRQ "/tmp/fifo_irq"
 #define NPROC 5
@@ -148,6 +152,15 @@ int main()
         close(fd);
     }
 
+    struct sockaddr_in serverAddr;
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(6000);
+    inet_aton("127.0.0.1", &serverAddr.sin_addr);
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
     for(int i = 0; i < NPROC; i++)
     {
         pid_t pid = fork();
@@ -190,7 +203,46 @@ int main()
             }
         }
 
-        //TODO fazer paradinha de pegar reply udp/server essas coisas
+        ShmMsg response;
+        struct sockaddr_in src;
+        socklen_t slen = sizeof(src);
+
+        int n = recvfrom(sockfd, &response, sizeof(response), 0, (struct sockaddr*)&src, &slen);
+
+        Response r;
+
+        if(n < 0)
+        {
+            if(errno == EAGAIN || errno == EWOULDBLOCK)
+                r.valid = 0;
+        }
+        else
+        {
+            r.valid = 1;
+
+            int idx = response.owner - 1;
+
+            msgs[idx]->result_code = response.result_code;
+            msgs[idx]->replyReady = 1;
+
+            if (response.payloadLen > 0) memcpy(msgs[idx]->payload, response.payload, response.payloadLen);
+
+            r.rep = response;
+            r.op  = response.op;
+        }
+
+        if(r.valid)
+        {
+            if((r.op == READ) || (r.op == WRITE)) 
+            {
+                filaFile[tamFilaFile++] = r;
+            }
+            else
+            {
+                filaDir[tamFilaDir++] = r;
+            } 
+
+        }
 
         for(int i = 0; i < NPROC; i++)
         {
@@ -198,17 +250,16 @@ int main()
 
             if (msgs[i]->requestReady)
             {
-                printf("REQUEST READY TA COMO?\n");
                 procs[i].estado = BLOCKED;
                 kill(procs[i].pid,SIGSTOP);
                 msgs[i]->requestReady = 0;
-                //EnviarREquest para o servidor aqui...
-                //sendUDPRequest();
+                
+                ShmMsg req;
+                req = *msgs[i];
+
+                int n = sendto(sockfd, &req, sizeof(ShmMsg), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
             }
         }
-
-        //getUDPResponse();
-        //enfileiraResponse();
 
         if(paused){
             kill(interController, SIGSTOP);
@@ -238,6 +289,12 @@ int main()
                 if(procs[i].estado == RUNNING)
                     kill(procs[i].pid, SIGCONT);
             }
+        }
+
+        for(int i = 0; i < NPROC; i++)
+        {
+            if(procs[i].pc >= 5)
+                procs[i].estado = FINISHED;
         }
 
         for(int i = 0; i < NPROC; i++)

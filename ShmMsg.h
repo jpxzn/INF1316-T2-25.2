@@ -17,13 +17,14 @@ typedef struct {
     OpType op;         // READ/WRITE/ADD/REM/LISTDIR
 
     char path[256];
+
     int  pathLen;
     int  offset;         // para read/write
 
-    char payload[16];    // write: dados; read: resposta
+    char payload[16];       // write: dados; read: resposta
     int payloadLen;
 
-    char dirName[64];       // DirName / Nome (add/rem)
+    char dirName[256];   // DirName / Nome (add/rem)
     int  dirNameLen;
 
     int  result_code;    // offset/strlen/nrnames ou < 0 erro

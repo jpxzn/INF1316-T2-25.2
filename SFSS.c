@@ -38,7 +38,7 @@ int main(void) {
 
         if(n <= 0) continue;
 
-        printf("[SFS] Recebido request op=%s owner=%d\n", req.op, req.owner);
+        printf("[SFS] Recebido request op=%d owner=%d\n", req.op, req.owner);
 
         ShmMsg rep;
         memset(&rep, 0, sizeof(rep));
