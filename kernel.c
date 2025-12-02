@@ -248,7 +248,7 @@ int main()
         {
             procs[i].pc = msgs[i]->pc;
 
-            if (msgs[i]->requestReady)
+            if (msgs[i]->requestReady && procs[i].estado != BLOCKED)
             {
                 procs[i].estado = BLOCKED;
                 kill(procs[i].pid,SIGSTOP);
