@@ -1,5 +1,5 @@
 
-.PHONY: all run clean
+.PHONY: all run clean server
 
 all:
 	gcc -o app app.c
@@ -9,5 +9,9 @@ all:
 run: all
 	./kernel
 
+server:
+	gcc -o server SFSS.c
+	./server
+
 clean:
-	rm -f app kernel interController
+	rm -f app kernel interController server
