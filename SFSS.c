@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -207,9 +208,63 @@ int main(void) {
         }
         else if (req.op == LIST_DIR)
         {
-            printf("[DEBUG][LIST_DIR] LIST_DIR ainda não implementado\n");
+            printf("[DEBUG][LIST_DIR] Listando diretório\n");
+
+            char fullpath[128];
+            snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, req.path);
+            printf("[DEBUG][LIST_DIR] Caminho completo: %s\n", fullpath);
+            memset(&rep.listDirInfo, 0, sizeof(rep.listDirInfo));
+
+            // Abrindo o diretório corretamente
+            DIR* d = opendir(fullpath);  // Usando DIR* ao invés de FILE*
+            if (!d)
+            {
+                rep.result_code = -1;
+                continue;
+            }
+
+            rep.listDirInfo.nrnames = 0;
+            struct dirent* ent;
+            int pos = 0;
+
+            while ((ent = readdir(d)) != NULL)
+            {
+                // Ignora "." e ".."
+                if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0)
+                    continue;
+
+                int idx = rep.listDirInfo.nrnames;
+                if (idx >= MAX_NAMES) break;
+
+                int nameLen = strlen(ent->d_name);
+                if (pos + nameLen >= MAX_ALLDIR) break;
+
+                // Registrar início e fim do nome
+                rep.listDirInfo.fstlstpositions[idx][0] = pos;
+
+                memcpy(rep.listDirInfo.allnames + pos, ent->d_name, nameLen);
+                pos += nameLen;
+
+                rep.listDirInfo.fstlstpositions[idx][1] = pos;
+
+                // Para descobrir se é diretório, usa stat()
+                char tmpPath[512];
+                snprintf(tmpPath, sizeof(tmpPath), "%s/%s", fullpath, ent->d_name);
+                struct stat st;
+                if (stat(tmpPath, &st) == 0 && S_ISDIR(st.st_mode))
+                    rep.listDirInfo.isDir[idx] = 1;
+                else
+                    rep.listDirInfo.isDir[idx] = 0;
+
+                rep.listDirInfo.nrnames++;
+            }
+
+            closedir(d);  // Fechar o diretório corretamente
+
+            rep.result_code = 0;
             continue;
         }
+
         else
         {
             printf("[DEBUG] Operação desconhecida: %d\n", req.op);

@@ -5,6 +5,9 @@
 #include "OpType.h"
 #include "State.h"
 
+#define MAX_NAMES 40
+#define MAX_ALLDIR 1024
+
 typedef struct {
     int requestReady;    // Ax -> Kernel
     int replyReady;      // Kernel -> Ax
@@ -26,6 +29,13 @@ typedef struct {
 
     char dirName[32];   // DirName / Nome (add/rem)
     int  dirNameLen;
+
+    struct {
+        int nrnames;       // número de nomes
+        char allnames[MAX_ALLDIR]; // lista de nomes concatenados
+        int fstlstpositions[MAX_NAMES][2]; // posições iniciais/finais de cada nome
+        char isDir[MAX_NAMES]; // indica se é diretório (1) ou arquivo (0)
+    } listDirInfo;
 
     int  result_code;    // offset/strlen/nrnames ou < 0 erro
 } ShmMsg;

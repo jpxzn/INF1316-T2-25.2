@@ -126,12 +126,14 @@ int main(int argc, char *argv[])
             else if (msg->op == LIST_DIR) 
             {
                 printf("   LISTDIR OK:\n");
-                printf("   payload (compactado) = \"");
-                for (int i = 0; i < 16; i++)
-                    putchar(msg->payload[i]);
-                printf("\"\n");
-                printf("   strlenPath = %d\n", msg->pathLen);
-                printf("   strlenDirName = %d\n", msg->dirNameLen);
+                for (int i = 0; i < msg->listDirInfo.nrnames; i++) {
+                    int start = msg->listDirInfo.fstlstpositions[i][0];
+                    int end = msg->listDirInfo.fstlstpositions[i][1];
+                    char name[256];
+                    memcpy(name, &msg->listDirInfo.allnames[start], end - start);
+                    name[end - start] = '\0';
+                    printf("      %s %s\n", name, msg->listDirInfo.isDir[i] ? "(DIR)" : "(FILE)");
+                }
             }
 
             msg->replyReady = 0;
