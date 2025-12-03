@@ -66,6 +66,7 @@ int main(void) {
                 printf("[DEBUG][READ] Erro ao abrir arquivo para leitura\n");
                 rep.offset = -1;
                 rep.payloadLen = 0;
+                sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
                 continue;
             }
             printf("[DEBUG][READ] Arquivo aberto com sucesso\n");
@@ -80,6 +81,7 @@ int main(void) {
                 rep.offset = -2; 
                 rep.payloadLen = 0;
                 fclose(f);
+                sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
                 continue;
             }
 
@@ -115,6 +117,7 @@ int main(void) {
                     printf("[DEBUG][WRITE] Erro ao deletar o arquivo\n");
                     rep.offset = -1;
                 }
+                sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
                 continue;
             }
 
@@ -128,6 +131,7 @@ int main(void) {
             if (!f) {
                 printf("[DEBUG][WRITE] ERRO: fopen retornou NULL\n");
                 rep.offset = -1;
+                sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
                 continue;
             }
 
@@ -208,7 +212,7 @@ int main(void) {
         else if (req.op == LIST_DIR)
         {
             printf("[DEBUG][LIST_DIR] LIST_DIR ainda não implementado\n");
-            continue;
+            rep.result_code = -1;
         }
         else
         {

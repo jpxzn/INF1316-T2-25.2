@@ -73,7 +73,6 @@ int main(int argc, char *argv[])
                 
                 memset(msg->payload, 'A' + owner , 16);
                 msg->payloadLen = 16;
-                printf("msgpayload -> %s\n", msg->payload);
                 printf("[App %d] syscall: write(%s)\n", owner, msg->path);
                 //TODO payload/offset vazio
 
