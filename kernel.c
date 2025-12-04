@@ -1,7 +1,6 @@
 #include "Procinfo.h"
 #include "State.h"
 #include "ShmMsg.h"
-#include "Response.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +20,7 @@
 
 ProcInfo procs[NPROC];
 ShmMsg* msgs[NPROC];
-Response filaDir[NPROC], filaFile[NPROC];
+ShmMsg filaDir[NPROC], filaFile[NPROC];
 int tamFilaDir = 0;
 int tamFilaFile = 0;
 int currentProc = 0;
@@ -46,7 +45,7 @@ void desbloqueia_processo(int fila)
         if(tamFilaFile == 0) return;
         else
         {
-            ShmMsg r = filaFile[0].rep;
+            ShmMsg r = filaFile[0];
             int i = r.owner - 1;
             msgs[i]->result_code = r.result_code;
             
@@ -67,7 +66,7 @@ void desbloqueia_processo(int fila)
         if(tamFilaDir == 0) return;
         else
         {
-            ShmMsg r = filaDir[0].rep;
+            ShmMsg r = filaDir[0];
             int i = r.owner - 1;
             msgs[i]->result_code = r.result_code;
             
@@ -209,17 +208,8 @@ int main()
 
         int n = recvfrom(sockfd, &response, sizeof(response), 0, (struct sockaddr*)&src, &slen);
 
-        Response r;
-
-        if(n < 0)
+        if(!(n < 0))
         {
-            if(errno == EAGAIN || errno == EWOULDBLOCK)
-                r.valid = 0;
-        }
-        else
-        {
-            r.valid = 1;
-
             int idx = response.owner - 1;
 
             msgs[idx]->result_code = response.result_code;
@@ -227,19 +217,13 @@ int main()
 
             if (response.payloadLen > 0) memcpy(msgs[idx]->payload, response.payload, response.payloadLen);
 
-            r.rep = response;
-            r.op  = response.op;
-        }
-
-        if(r.valid)
-        {
-            if((r.op == READ) || (r.op == WRITE)) 
+            if((response.op == READ) || (response.op == WRITE)) 
             {
-                filaFile[tamFilaFile++] = r;
+                filaFile[tamFilaFile++] = response;
             }
             else
             {
-                filaDir[tamFilaDir++] = r;
+                filaDir[tamFilaDir++] = response;
             } 
 
         }
