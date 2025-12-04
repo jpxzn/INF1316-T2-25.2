@@ -52,6 +52,8 @@ int main(void) {
         char ownerDir[256];
         snprintf(ownerDir, sizeof(ownerDir), "%s/A%d", ROOT_DIR, req.owner);
         mkdir(ownerDir, 0777);
+        snprintf(ownerDir, sizeof(ownerDir), "%s/A%d", ROOT_DIR, 0);
+        mkdir(ownerDir, 0777);
         
         if (req.op == READ)
         {
@@ -67,6 +69,7 @@ int main(void) {
                 printf("[DEBUG][READ] Erro ao abrir arquivo para leitura\n");
                 rep.offset = -1;
                 rep.payloadLen = 0;
+                rep.result_code = -1;
                 sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
                 continue;
             }
@@ -106,6 +109,14 @@ int main(void) {
             char fullpath[128];
             snprintf(fullpath, sizeof(fullpath), "%s%s", ROOT_DIR, req.path);
             printf("[DEBUG][WRITE] Caminho completo: %s\n", fullpath);
+
+            if (req.payloadLen == 0)
+            {
+                unlink(fullpath);
+                rep.result_code = 0;
+                sendto(sock, &rep, sizeof(rep), 0, (struct sockaddr*)&cliAddr, cliLen);
+                continue;
+            }
 
             if (req.payloadLen == 0 && req.offset == 0)
             {
@@ -175,7 +186,7 @@ int main(void) {
             printf("[DEBUG][ADD_DIR] Criando diretório\n");
 
             char fullpath[128];
-            snprintf(fullpath, sizeof(fullpath), "%s%s/%s", ROOT_DIR, req.path, req.dirName);
+            snprintf(fullpath, sizeof(fullpath), "%s%s%s", ROOT_DIR, req.path, req.dirName);
             printf("[DEBUG][ADD_DIR] Caminho completo: %s\n", fullpath);
 
             if (mkdir(fullpath, 0777) == 0)
@@ -195,7 +206,7 @@ int main(void) {
             printf("[DEBUG][REMOVE_DIR] Removendo diretório\n");
 
             char fullpath[128];
-            snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, req.path);
+            snprintf(fullpath, sizeof(fullpath), "%s%s%s", ROOT_DIR, req.path, req.dirName);
             printf("[DEBUG][REMOVE_DIR] Caminho completo: %s\n", fullpath);
 
             if (rmdir(fullpath) == 0)
@@ -215,7 +226,7 @@ int main(void) {
             printf("[DEBUG][LIST_DIR] Listando diretório\n");
 
             char fullpath[128];
-            snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, req.path);
+            snprintf(fullpath, sizeof(fullpath), "%s%s", ROOT_DIR, req.dirName);
             printf("[DEBUG][LIST_DIR] Caminho completo: %s\n", fullpath);
             memset(&rep.listDirInfo, 0, sizeof(rep.listDirInfo));
 

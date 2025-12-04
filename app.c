@@ -45,54 +45,58 @@ int main(int argc, char *argv[])
 
             OpType tipo = (OpType)(rand() % 5);
             msg->op = tipo;
-
-            int dir = rand() % 3;
-            int file = rand() % 5;
-
             msg->owner = owner;
             msg->pc = pc;
             msg->estado = BLOCKED;
             msg->pid = getpid();
-            sprintf(msg->path, "/A%d", owner);
+            int ownDir = rand() % 5;
+            int procdir = ownDir == 0? owner : 0;
+            sprintf(msg->path, "/A%d", procdir);
             msg->pathLen = strlen(msg->path);
             msg->offset = offsets[rand() % 5];
             
+            int file = rand() % 5;
+            char filename[32];   // espaço suficiente
+            sprintf(filename, "/file%d", file);
+            
+            int dir = rand() % 3;
+            char nameDir[32];   // espaço suficiente
+            sprintf(nameDir, "/dir%d", dir + 1);
+            
+            
             if (tipo == READ) 
             {
-                char filename[512];   // espaço suficiente
-                sprintf(filename, "/file%d", file);
                 strcat(msg->path, filename);
-                
                 printf("[App %d] syscall: read(%s)\n", owner, msg->path);
             }   
             else if (tipo == WRITE) 
-            {
-                char filename[32];   // espaço suficiente
-                sprintf(filename, "/file%d", file);
-                strcat(msg->path, filename);
-                
-                memset(msg->payload, 'A' + owner , 16);
-                msg->payloadLen = 16;
+            {   
+                int empty_write = rand() % 5 == 0;
+                if (empty_write)
+                    msg->payloadLen = 0;
+                else{
+                    strcat(msg->path, filename);
+                    memset(msg->payload, 'A' + (rand() % 5) , 16);
+                    msg->payloadLen = 16;
+                }
                 printf("[App %d] syscall: write(%s)\n", owner, msg->path);
-                //TODO payload/offset vazio
-
             } 
             else if (tipo == ADD_DIR ) 
             {
-               strcpy(msg->dirName, "newDir");
+                strcpy(msg->dirName, nameDir);
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: add(%s)\n", owner, msg->path);
 
             } 
             else if (tipo == REMOVE_DIR) 
             {
-                strcpy(msg->dirName, "toRemoveDir");
+                strcpy(msg->dirName, nameDir);
                 msg->dirNameLen = strlen(msg->dirName);
                 printf("[App %d] syscall: rem(%s)\n", owner, msg->path);
             } 
             else if( tipo == LIST_DIR)
             {
-
+                sprintf(msg->dirName, "/A%d", procdir);
                 printf("[App %d] syscall: listdir(%s)\n", owner, msg->path);
             }
 
@@ -102,8 +106,11 @@ int main(int argc, char *argv[])
 
         if(msg->replyReady)
         {
-
-            if (msg->op == READ) 
+            if(msg->result_code < 0)
+            {
+                printf("   ERRO na operação %d\n", msg->op);
+            } 
+            else if (msg->op == READ) 
             {
                 printf("   READ OK: payload recebido = \"");
                 for (int i = 0; i < 16; i++)
@@ -112,7 +119,7 @@ int main(int argc, char *argv[])
             } 
             else if (msg->op == WRITE) 
             {
-                printf("   WRITE OK: 16 bytes foram escritos.\n");
+                printf("   WRITE OK: Mensagem escrita.\n");
             } 
             else if (msg->op == ADD_DIR) 
             {
@@ -120,7 +127,7 @@ int main(int argc, char *argv[])
             } 
             else if (msg->op == REMOVE_DIR) 
             {
-                printf("   REMOVE OK: novo path = %s\n", msg->path);
+                printf("   REMOVE OK: path removido = %s\n", msg->path);
             } 
             else if (msg->op == LIST_DIR) 
             {
