@@ -267,10 +267,14 @@ int main(void) {
                 char tmpPath[512];
                 snprintf(tmpPath, sizeof(tmpPath), "%s/%s", fullpath, ent->d_name);
                 struct stat st;
-                if (stat(tmpPath, &st) == 0 && S_ISDIR(st.st_mode))
+                if (stat(tmpPath, &st) == 0 && S_ISDIR(st.st_mode)) {
                     rep.listDirInfo.isDir[idx] = 1;
-                else
+                    printf("[DEBUG][LIST_DIR] Encontrado diretório: %s\n", ent->d_name);
+                }
+                else {
                     rep.listDirInfo.isDir[idx] = 0;
+                    printf("[DEBUG][LIST_DIR] Encontrado arquivo: %s\n", ent->d_name);
+                }
 
                 rep.listDirInfo.nrnames++;
             }
